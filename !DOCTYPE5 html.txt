@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plane Escape</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    user-select:none;
+}
+
+html,body{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Arial,sans-serif;
+}
+
+#game{
+    width:100vw;
+    height:100vh;
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(
+        to bottom,
+        #6fc8ff,
+        #dff5ff
+    );
+}
+
+/* Vùng cấm bay */
+#noFlyZone{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:80px;
+
+    background:rgba(255,0,0,0.25);
+    border-bottom:4px solid red;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    color:red;
+    font-size:30px;
+    font-weight:bold;
+
+    z-index:15;
+}
+
+.cloud{
+    position:absolute;
+    font-size:60px;
+}
+
+#score{
+    position:absolute;
+    top:100px;
+    right:30px;
+    font-size:36px;
+    font-weight:bold;
+    z-index:20;
+}
+
+#plane{
+    position:absolute;
+    left:120px;
+    bottom:220px;
+    font-size:65px;
+    z-index:20;
+}
+
+#enemyPlane{
+    position:absolute;
+    left:1500px;
+    bottom:250px;
+    font-size:60px;
+    transform:scaleX(-1);
+    z-index:20;
+}
+
+#building{
+    position:absolute;
+    bottom:50px;
+    width:100px;
+    background:#666;
+    border:2px solid #444;
+}
+
+.window{
+    position:absolute;
+    width:8px;
+    height:8px;
+    background:#ffd700;
+    border-radius:1px;
+}
+
+#ground{
+    position:absolute;
+    bottom:0;
+    width:100%;
+    height:50px;
+    background:#2e8b57;
+}
+
+#startScreen{
+    position:absolute;
+    width:100%;
+    height:100%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding:20px;
+    background:rgba(0,0,0,0.3);
+    color:white;
+    font-size:40px;
+    font-weight:bold;
+    z-index:100;
+}
+
+#gameOver{
+    position:absolute;
+    width:100%;
+    height:100%;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    background:rgba(0,0,0,0.8);
+    color:white;
+    z-index:200;
+}
+
+#gameOver h1{
+    font-size:70px;
+}
+
+#finalScore{
+    margin:20px 0;
+    font-size:32px;
+}
+
+#replayBtn{
+    padding:15px 35px;
+    font-size:24px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div id="noFlyZone">
+        🚫 NO FLY ZONE 🚫
+    </div>
+
+    <div class="cloud" style="left:120px;top:110px;">☁️</div>
+    <div class="cloud" style="left:700px;top:150px;">☁️</div>
+    <div class="cloud" style="left:1300px;top:120px;">☁️</div>
+
+    <div id="score">0</div>
+
+    <div id="plane">✈️</div>
+
+    <div id="enemyPlane">✈️</div>
+
+    <div id="building"></div>
+
+    <div id="ground"></div>
+
+    <div id="startScreen">
+        NHẤN SPACE ĐỂ BẮT ĐẦU VÀ BAY LÊN
+    </div>
+
+    <div id="gameOver">
+        <h1>GAME OVER</h1>
+        <div id="finalScore"></div>
+        <button id="replayBtn">
+            REPLAY
+        </button>
+    </div>
+
+</div>
+
+<script>
+
+const plane =
+document.getElementById("plane");
+
+const enemyPlane =
+document.getElementById("enemyPlane");
+
+const building =
+document.getElementById("building");
+
+const scoreText =
+document.getElementById("score");
+
+const startScreen =
+document.getElementById("startScreen");
+
+const gameOver =
+document.getElementById("gameOver");
+
+const finalScore =
+document.getElementById("finalScore");
+
+const replayBtn =
+document.getElementById("replayBtn");
+
+let started = false;
+let running = true;
+
+let planeY = 220;
+let velocity = 0;
+
+let buildingX =
+window.innerWidth;
+
+let buildingHeight = 180;
+
+let enemyX =
+window.innerWidth + 400;
+
+let enemyY = 250;
+
+let score = 0;
+let speed = 6;
+
+function createBuilding(){
+
+    buildingHeight =
+    Math.floor(Math.random()*120)
+    + 120;
+
+    building.style.height =
+    buildingHeight + "px";
+
+    buildingX =
+    window.innerWidth;
+
+    building.innerHTML = "";
+
+    for(let row=0; row<8; row++){
+
+        for(let col=0; col<3; col++){
+
+            const w =
+            document.createElement("div");
+
+            w.className = "window";
+
+            w.style.left =
+            (15 + col*25) + "px";
+
+            w.style.top =
+            (10 + row*18) + "px";
+
+            building.appendChild(w);
+        }
+    }
+}
+
+createBuilding();
+
+document.addEventListener(
+"keydown",
+function(e){
+
+    if(e.code !== "Space")
+        return;
+
+    e.preventDefault();
+
+    if(!started){
+
+        started = true;
+
+        startScreen.style.display =
+        "none";
+
+        requestAnimationFrame(
+            gameLoop
+        );
+    }
+
+    if(!running)
+        return;
+
+    velocity = 13;
+});
+
+function endGame(){
+
+    running = false;
+
+    finalScore.innerHTML =
+    "Điểm của bạn: "
+    + score;
+
+    gameOver.style.display =
+    "flex";
+}
+
+function resetGame(){
+
+    running = true;
+    started = true;
+
+    planeY = 220;
+    velocity = 0;
+
+    score = 0;
+    speed = 6;
+
+    scoreText.innerHTML = "0";
+
+    enemyX =
+    window.innerWidth + 400;
+
+    enemyY = 250;
+
+    createBuilding();
+
+    gameOver.style.display =
+    "none";
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+replayBtn.addEventListener(
+"click",
+resetGame
+);
+
+function gameLoop(){
+
+    if(!running)
+        return;
+
+    velocity -= 0.55;
+
+    planeY += velocity;
+
+    if(planeY < 0){
+
+        planeY = 0;
+        velocity = 0;
+    }
+
+    plane.style.bottom =
+    planeY + "px";
+
+    if(velocity > 0){
+
+        plane.style.transform =
+        "rotate(-4deg)";
+    }
+    else{
+
+        plane.style.transform =
+        "rotate(4deg)";
+    }
+
+    /* Va chạm vùng cấm bay */
+
+    if(
+        planeY >
+        window.innerHeight - 180
+    ){
+        endGame();
+        return;
+    }
+
+    buildingX -= speed;
+
+    building.style.left =
+    buildingX + "px";
+
+    if(buildingX < -120){
+
+        score++;
+
+        scoreText.innerHTML =
+        score;
+
+        speed += 0.12;
+
+        createBuilding();
+    }
+
+    if(
+        buildingX < 170 &&
+        buildingX > 30 &&
+        planeY <
+        buildingHeight + 35
+    ){
+        endGame();
+        return;
+    }
+
+    enemyX -= speed + 2;
+
+    enemyPlane.style.left =
+    enemyX + "px";
+
+    enemyPlane.style.bottom =
+    enemyY + "px";
+
+    if(enemyX < -150){
+
+        enemyX =
+        window.innerWidth + 300;
+
+        enemyY =
+        Math.floor(Math.random()*250)
+        + 80;
+    }
+
+    if(
+        enemyX < 170 &&
+        enemyX > 50 &&
+        Math.abs(
+            planeY - enemyY
+        ) < 50
+    ){
+        endGame();
+        return;
+    }
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+</script>
+
+</body>
+</html>
